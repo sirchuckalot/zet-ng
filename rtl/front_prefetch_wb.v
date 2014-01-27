@@ -90,7 +90,7 @@ always @(posedge wb_clk_i)
 // complete wb cycle before the stall condition is acknowledge.
 always @(posedge wb_clk_i)
   if (wb_rst_i) wb_stb_o <= 1'b0;
-  else wb_cyc_o <= !stalled ? 1'b1 : wb_ack_i ? 1'b0 : wb_cyc_o;
+  else wb_cyc_o <= !stalled ? 1'b1 : (wb_ack_i ? 1'b0 : wb_cyc_o);
 
 // wb_stb_o
 // When a stall condition is encountered at or during wb strobe,
@@ -98,7 +98,7 @@ always @(posedge wb_clk_i)
 // complete wb cycle before the stall condition is acknowledge.
 always @(posedge wb_clk_i)
   if (wb_rst_i) wb_stb_o <= 1'b0;
-  else wb_stb_o <= !stalled ? 1'b1 : wb_ack_i ? 1'b0 : wb_stb_o;
+  else wb_stb_o <= !stalled ? 1'b1 : (wb_ack_i ? 1'b0 : wb_stb_o);
 
 // write fifo
 always @(posedge wb_clk_i)
