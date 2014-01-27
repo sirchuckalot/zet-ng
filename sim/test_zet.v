@@ -1,4 +1,21 @@
-`timescale 10ns/100ps
+/*
+ *  Testbench for Zet processor
+ *  Copyright (C) 2008-2010  Zeus Gomez Marmolejo <zeus@aluzina.org>
+ *
+ *  This file is part of the Zet processor. This processor is free
+ *  hardware; you can redistribute it and/or modify it under the terms of
+ *  the GNU General Public License as published by the Free Software
+ *  Foundation; either version 3, or (at your option) any later version.
+ *
+ *  Zet is distrubuted in the hope that it will be useful, but WITHOUT
+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ *  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+ *  License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Zet; see the file COPYING. If not, see
+ *  <http://www.gnu.org/licenses/>.
+ */
 
 module test_zet;
 
@@ -13,7 +30,6 @@ module test_zet;
   wire        cyc;
   wire        ack, mem_ack, io_ack;
   wire        inta;
-  wire        nmia;
   wire [19:0] pc;
 
   reg         clk;
@@ -38,8 +54,9 @@ module test_zet;
   );
 
   zet zet (
-    .wb_clk_i (clk),
-    .wb_rst_i (rst),
+    .clk_i (clk),
+    .rst_i (rst),
+
     .wb_dat_i (dat_i),
     .wb_dat_o (dat_o),
     .wb_adr_o (adr),
@@ -49,11 +66,12 @@ module test_zet;
     .wb_stb_o (stb),
     .wb_cyc_o (cyc),
     .wb_ack_i (ack),
-    .wb_tgc_i (1'b0),
-    .wb_tgc_o (inta),
-    .nmi      (1'b0),
-    .nmia     (nmia),
-    .pc       (pc)
+
+    .intr (1'b0),
+    .inta (inta),
+    .iid  (4'h0),
+
+    .pc   (pc)
   );
 
   // Assignments
@@ -72,7 +90,7 @@ module test_zet;
     else if (adr[15:1]==15'h5c & sel[0] && cyc && stb)
       io_reg[15:8] <= dat_o[7:0];
 
-  always #4 clk = ~clk;  // 12.5 Mhz
+  always #1.5 clk = ~clk;
 
   initial
     begin
@@ -80,7 +98,7 @@ module test_zet;
          clk <= 1'b1;
          rst <= 1'b0;
       #5 rst <= 1'b1;
-      #5 rst <= 1'b0;
+      #2 rst <= 1'b0;
 
       #1000 intr <= 1'b1;
       //@(posedge inta)

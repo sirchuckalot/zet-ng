@@ -23,42 +23,40 @@ module zet_core (
     input clk,
     input rst,
 
+    // UMI slave interface - fetch
+    output [19:0] umif_adr_o,
+    input  [15:0] umif_dat_i,
+    output        umif_stb_o,
+    output        umif_by_o,
+    input         umif_ack_i,
+
+    // UMI slave interface - exec
+    output [19:0] umie_adr_o,
+    input  [15:0] umie_dat_i,
+    output [15:0] umie_dat_o,
+    output        umie_we_o,
+    output        umie_by_o,
+    output        umie_stb_o,
+    input         umie_ack_i,
+    output        umie_tga_o,
+
     // interrupts
-    input  intr,
-    output inta,
-    input  nmi,
-    output nmia,
-
-    // interface to wishbone
-    output [19:0] cpu_adr_o,
-    input  [15:0] iid_dat_i,
-    input  [15:0] cpu_dat_i,
-    output [15:0] cpu_dat_o,
-    output        cpu_byte_o,
-    input         cpu_block,
-    output        cpu_mem_op,
-    output        cpu_m_io,
-    output        cpu_we_o,
-
-    output [19:0] pc  // for debugging purposes
+    input        intr,
+    output       inta,
+    input  [3:0] iid
   );
 
   // Net declarations
-  wire [`IR_SIZE-1:0] ir;
-  wire [15:0] off;
-  wire [15:0] imm;
-  wire        wr_ip0;
+  reg [`IR_SIZE-1:0] ir;
+  reg [15:0] off;
+  reg [15:0] imm;
+  reg        wr_ip0;
 
   wire [15:0] cs;
   wire [15:0] ip;
   wire        of;
   wire        zf;
   wire        ifl;
-  wire        iflm;
-  wire        tfl;
-  wire        tflm;
-  wire        iflss;
-  wire        wr_ss;
   wire        cx_zero;
   wire        div_exc;
 
@@ -73,8 +71,9 @@ module zet_core (
   wire [3:0] base;
   wire [3:0] index;
   wire [1:0] seg;
-  wire       end_seq;
   wire [2:0] fdec;
+
+  wire       end_seq;
   wire       div;
 
   // wires fetch - decode
@@ -82,6 +81,7 @@ module zet_core (
   wire [7:0] modrm;
   wire       rep;
   wire       exec_st;
+  wire       exec_ns;
   wire       ld_base;
   wire [2:0] sop_l;
 
@@ -94,6 +94,8 @@ module zet_core (
 
   // wires fetch - microcode
   wire [15:0] off_l;
+  wire [15:0] off_d;
+  wire        wr_ip0_f;
   wire [15:0] imm_l;
   wire [15:0] imm_d;
   wire [`IR_SIZE-1:0] rom_ir;
@@ -102,19 +104,16 @@ module zet_core (
   // wires fetch - exec
   wire [15:0] imm_f;
 
-  // wires and regs for hlt
-  wire block_or_hlt;
-  wire hlt_op;
-  wire hlt_in;
-  wire hlt_out;
+  // wires control - fetch
+  wire stall_f;
 
-  reg hlt_op_old;
-  reg hlt;
-
-  // regs for nmi
-  reg nmir;
-  reg nmi_old;
-  reg nmia_old;
+  reg [`MICRO_ADDR_WIDTH-1:0] seq_addr_l;
+  reg [ 3:0] src_l;
+  reg [ 3:0] dst_l;
+  reg [ 3:0] base_l;
+  reg [ 3:0] index_l;
+  reg [ 1:0] seg_l;
+  reg [ 2:0] fdec_l;
 
   // Module instantiations
   zet_fetch fetch (
@@ -126,6 +125,7 @@ module zet_core (
     .modrm   (modrm),
     .rep     (rep),
     .exec_st (exec_st),
+    .exec_ns (exec_ns),
     .ld_base (ld_base),
     .sop_l   (sop_l),
 
@@ -139,34 +139,33 @@ module zet_core (
     .end_seq    (end_seq),
 
     // to microcode
-    .off_l (off_l),
-    .imm_l (imm_l),
+    .off (off_l),
+    .imm (imm_l),
 
     // from microcode
     .ftype (ftype),
 
     // to exec
     .imm_f  (imm_f),
-    .wr_ip0 (wr_ip0),
+    .wr_ip0 (wr_ip0_f),
 
     // from exec
-    .cs      (cs),
-    .ip      (ip),
     .of      (of),
     .zf      (zf),
-    .iflm    (iflm),
-    .tflm    (tflm),
-    .iflss   (iflss),
-    .cx_zero (cx_zero),
+    .ifl     (ifl),
+//    .cx_zero (cx_zero), // still to resolve jumps
     .div_exc (div_exc),
 
+    // from control
+    .stall_f (stall_f),
+
     // to wb
-    .data          (cpu_dat_i),
-    .pc            (pc),
-    .bytefetch     (byte_fetch),
-    .block         (block_or_hlt),
-    .intr          (intr),
-    .nmir          (nmir)
+    .data      (umif_dat_i),
+    .pc        (umif_adr_o),
+    .bytefetch (umif_by_o),
+    .stb       (umif_stb_o),
+    .ack       (umif_ack_i),
+    .intr      (intr)
   );
 
   zet_decode decode (
@@ -176,13 +175,12 @@ module zet_core (
     .opcode  (opcode),
     .modrm   (modrm),
     .rep     (rep),
-    .block   (block_or_hlt),
+    .block   (stall_f),
     .exec_st (exec_st),
+    .exec_ns (exec_ns),
     .div_exc (div_exc),
     .ld_base (ld_base),
     .div     (div),
-    .tfl     (tfl),
-    .tflm    (tflm),
 
     .need_modrm (need_modrm),
     .need_off   (need_off),
@@ -193,13 +191,8 @@ module zet_core (
     .sop_l   (sop_l),
     .intr    (intr),
     .ifl     (ifl),
-    .iflm    (iflm),
     .inta    (inta),
     .ext_int (ext_int),
-    .nmir    (nmir),
-    .nmia    (nmia),
-    .wr_ss   (wr_ss),
-    .iflss   (iflss),
 
     .seq_addr (seq_addr),
     .src      (src),
@@ -213,22 +206,25 @@ module zet_core (
   );
 
   zet_micro_data micro_data (
-    // from decode
-    .n_micro (seq_addr),
+    // from fetch
     .off_i   (off_l),
     .imm_i   (imm_l),
-    .src     (src),
-    .dst     (dst),
-    .base    (base),
-    .index   (index),
-    .seg     (seg),
-    .fdec    (fdec),
+
+    // from decode
+    .n_micro (seq_addr_l),
+    .src     (src_l),
+    .dst     (dst_l),
+    .base    (base_l),
+    .index   (index_l),
+    .seg     (seg_l),
+    .fdec    (fdec_l),
+
     .div     (div),
     .end_seq (end_seq),
 
     // to exec
     .ir    (rom_ir),
-    .off_o (off),
+    .off_o (off_d),
     .imm_o (imm_d)
   );
 
@@ -240,7 +236,7 @@ module zet_core (
     .ir      (ir),
     .off     (off),
     .imm     (imm),
-    .wrip0   (wr_ip0),
+    .wrip0   (1'b0),
 
     // to fetch
     .cs      (cs),
@@ -248,70 +244,64 @@ module zet_core (
     .of      (of),
     .zf      (zf),
     .ifl     (ifl),
-    .tfl     (tfl),
     .cx_zero (cx_zero),
     .div_exc (div_exc),
 
-    .wr_ss   (wr_ss),
-
     // from wb
-    .memout  (iid_dat_i),
-    .wr_data (cpu_dat_o),
-    .addr    (addr_exec),
-    .we      (cpu_we_o),
-    .m_io    (cpu_m_io),
-    .byteop  (byte_exec),
-    .block   (block_or_hlt)
+    .iid     (iid),
+    .memout  (umie_dat_i),
+    .wr_data (umie_dat_o),
+    .addr    (umie_adr_o),
+    .we      (umie_we_o),
+    .m_io    (umie_tga_o),
+    .byteop  (umie_by_o),
+    .stb     (umie_stb_o),
+    .ack     (umie_ack_i)
   );
 
   // Assignments
-  assign cpu_adr_o  = exec_st ? addr_exec : pc;
-  assign cpu_byte_o = exec_st ? byte_exec : byte_fetch;
-  assign cpu_mem_op = ir[`MEM_OP];
+//  assign cpu_mem_op = ir[`MEM_OP];
 
-  assign ir    = exec_st ? rom_ir : `ADD_IP;
-  assign imm   = exec_st ? imm_d  : imm_f;
-  assign ftype = rom_ir[28:23];
-
-  assign hlt_op = ((opcode == `OP_HLT) && exec_st); 
-  assign hlt_in = (hlt_op && !hlt_op_old && !hlt_out);
-  assign hlt_out = (intr & ifl) | nmir;
-  assign block_or_hlt = cpu_block | hlt | hlt_in;
+  assign ftype   = rom_ir[28:23];
+  assign stall_f = umie_stb_o & !umie_ack_i;
 
   // Behaviour
+  // microcode - exec registers
   always @(posedge clk)
     if (rst)
-      hlt_op_old <= 1'b0;
+      begin
+        ir  <= 'd0;
+        imm <= 'd0;
+        off <= 'd0;
+      end
     else
-      if (hlt_op)
-        hlt_op_old <= 1'b1;
-      else
-        hlt_op_old <= 1'b0;
+      begin
+        ir  <= ld_base ? rom_ir : `NOP_IR;
+        imm <= imm_d;
+        off <= off_d;
+      end
 
+  // decode - microcode registers
   always @(posedge clk)
     if (rst)
-      hlt <= 1'b0;
+      begin
+        seq_addr_l <= 'd0;
+        src_l      <= 'd0;
+        dst_l      <= 'd0;
+        base_l     <= 'd0;
+        index_l    <= 'd0;
+        seg_l      <= 'd0;
+        fdec_l     <= 'd0;
+      end
     else
-      if (hlt_in)
-        hlt <= 1'b1;
-      else if (hlt_out)
-        hlt <= 1'b0;
-
-  always @(posedge clk)
-    if (rst)
-    begin
-      nmir <= 1'b0;
-      nmi_old <= 1'b0;
-      nmia_old <= 1'b0;
-    end
-    else
-    begin
-      nmi_old <= nmi;
-      nmia_old <= nmia; 
-      if (nmi & ~nmi_old)
-        nmir <= 1'b1;
-      else if (nmia_old)
-        nmir <= 1'b0;
-    end
+      begin
+        seq_addr_l <= seq_addr;
+        src_l      <= src;
+        dst_l      <= dst;
+        base_l     <= base;
+        index_l    <= index;
+        seg_l      <= seg;
+        fdec_l     <= fdec;
+      end
 
 endmodule
