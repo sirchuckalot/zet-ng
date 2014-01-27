@@ -13,6 +13,7 @@ http://zet.aluzina.org
 
 ++ Explanation of directories
   bin/       - Tools for converting files to machine readable format
+  docs/      - Processor Documentation
   rtl/       - Processor Verilog source code
   rtl-syn/   - Processor synthesis stubs for timing analysis
   syn/       - Processor top level project for de1 target board
