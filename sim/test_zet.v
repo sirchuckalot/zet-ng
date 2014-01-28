@@ -108,7 +108,7 @@ module test_zet;
   initial
     begin
       $readmemh("data.rtlrom", mem0.ram, 19'h78000);
-      $readmemb("../rtl/micro_rom.dat",
-        zet.core.micro_data.micro_rom.rom);
+//      $readmemb("../rtl/micro_rom.dat",
+//        zet.core.micro_data.micro_rom.rom);
     end
 endmodule

@@ -23,6 +23,9 @@ DEFS   = +define+SIMULATION
 VFLAGS = -work $(LIB) -lint -nologo -quiet -timescale 10ns/1ns
 
 ZET_MODS    = zet_front_prefetch_umi \
+              zet \
+              zet_wb_master \
+              zet_core
 #              zet_addsub \
 #              zet_alu \
 #              zet_bitlog \
@@ -49,10 +52,8 @@ ZET_MODS    = zet_front_prefetch_umi \
 #              zet_rxr8 \
 #              zet_rxr16 \
 #              zet_shrot \
-              zet \
-              zet_wb_master \
 #              zet_signmul17 \
-              zet_core
+
 SIM_MODS    = test_zet \
               memory
 
