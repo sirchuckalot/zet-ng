@@ -22,35 +22,36 @@ INC    = +incdir+../rtl
 DEFS   = +define+SIMULATION
 VFLAGS = -work $(LIB) -lint -nologo -quiet -timescale 10ns/1ns
 
-ZET_MODS    = zet_addsub \
-              zet_alu \
-              zet_bitlog \
-              zet_arlog \
-              zet_conv \
-              zet_decode \
-              zet_div_su \
-              zet_div_uu \
-              zet_exec \
-              zet_fetch \
-              zet_fulladd16 \
-              zet_jmp_cond \
-              zet_memory_regs \
-              zet_micro_data \
-              zet_micro_rom \
-              zet_muldiv \
-              zet_mux8_1 \
-              zet_mux8_16 \
-              zet_next_or_not \
-              zet_nstate \
-              zet_opcode_deco \
-              zet_othop \
-              zet_regfile \
-              zet_rxr8 \
-              zet_rxr16 \
-              zet_shrot \
+ZET_MODS    = zet_front_prefetch_umi \
+#              zet_addsub \
+#              zet_alu \
+#              zet_bitlog \
+#              zet_arlog \
+#              zet_conv \
+#              zet_decode \
+#              zet_div_su \
+#              zet_div_uu \
+#              zet_exec \
+#              zet_fetch \
+#              zet_fulladd16 \
+#              zet_jmp_cond \
+#              zet_memory_regs \
+#              zet_micro_data \
+#              zet_micro_rom \
+#              zet_muldiv \
+#              zet_mux8_1 \
+#              zet_mux8_16 \
+#              zet_next_or_not \
+#              zet_nstate \
+#              zet_opcode_deco \
+#              zet_othop \
+#              zet_regfile \
+#              zet_rxr8 \
+#              zet_rxr16 \
+#              zet_shrot \
               zet \
               zet_wb_master \
-              zet_signmul17 \
+#              zet_signmul17 \
               zet_core
 SIM_MODS    = test_zet \
               memory
