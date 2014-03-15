@@ -21,13 +21,16 @@
 
 module zet_front_prefetch_wb (
   // Wishbone master signals
-  input             wb_clk_i,
-  input             wb_rst_i,
+  input             clk_i,
+  input             rst_i,
+
   input      [15:0] wb_dat_i,
   output     [19:1] wb_adr_o,
   output     [ 1:0] wb_sel_o,
-  output reg        wb_cyc_o,
-  output reg        wb_stb_o,
+  //output reg        wb_cyc_o,
+  output            wb_cyc_o,
+  //output reg        wb_stb_o,
+  output            wb_stb_o,
   input             wb_ack_i,
 
   // Invalidate current fetch cycle
@@ -39,23 +42,38 @@ module zet_front_prefetch_wb (
   input      [15:0] requested_ip,
 
   // Output to instruction fifo stage
-  output reg [15:0] cs,
-  output reg [15:0] ip,
-  output reg [15:0] fifo_dat_o,
-  output reg        wr_fifo,
+  output reg [15:0] fifo_cs_o,
+  //output     [15:0] fifo_cs_o,
+  output reg [15:0] fifo_ip_o,
+  //output       [15:0] fifo_ip_o,
+  output reg [15:0] fetch_dat_o,
+  //output     [15:0] fetch_dat_o,
+  output reg        wr_fetch_fifo,
+  //output            wr_fetch_fifo,
   input             fifo_full
 
 );
 
 // Registers and nets
 
+wire abort_fetch;
 wire stalled;
+wire wb_cyc_complete;
+
+reg valid_cyc;
+reg wb_cyc;
+
+reg [15:0] cs;
+reg [15:0] ip;
 
 // Continuous assignments
 
-// The flush, load_cs_ip and fifo_full signals will cause the fetch to be stalled
+// The system reset, flush, load_cs_ip will cause fetch operations to be aborted
+assign abort_fetch = rst_i || flush || load_cs_ip;
+
+// The fifo_full signal will cause the fetch to be stalled
 // Any other time, it should be ok to start another fetch cycle
-assign stalled = flush || load_cs_ip || fifo_full;
+assign stalled = fifo_full;
 
 // Calculate address for wb_adr_o
 assign wb_adr_o = (cs << 4) + ip;
@@ -63,11 +81,46 @@ assign wb_adr_o = (cs << 4) + ip;
 // We are always fetching two bytes at a time
 assign wb_sel_o = 2'b11;
 
+// Wishbone cycle
+assign wb_cyc_o = (!abort_fetch & !stalled) || wb_cyc;
+
+// Wishbone strobe
+assign wb_stb_o = (!abort_fetch & !stalled) || wb_cyc;
+
+// This signals that a wishbone cycle has completed
+assign wb_cyc_complete = wb_cyc_o & wb_stb_o & wb_ack_i;
+
+// Pass wishbone data to fifo
+//assign fetch_dat_o = wb_dat_i;
+//assign fifo_cs_o = cs;
+//assign fifo_ip_o = ip;
+
+// Write fifo
+//assign wr_fetch_fifo = valid_cyc;
+
 // behaviour
 
+// Is this an active wishbone cycle?
+// Master devices MUST complete the wishbone cycle even if the request
+// has been invalidated!!
+always @(posedge clk_i)
+  if (rst_i) wb_cyc <= 1'b0;
+  else wb_cyc <= !abort_fetch & !stalled ? 1'b1
+               : wb_cyc_complete ? 1'b0
+               : wb_cyc;
+  
+// Does the wishbone cycle need to be invalidated?
+// Master devices MUST complete the wishbone cycle even if the request
+// has been invalidated!!
+always @(posedge clk_i)
+  if (rst_i) valid_cyc <= 1'b0;
+  else valid_cyc <= abort_fetch ? 1'b0
+                  : wb_cyc_complete ? 1'b1
+                  : valid_cyc;
+
 // cs and ip logic
-always @(posedge wb_clk_i)
-  if (wb_rst_i) begin
+always @(posedge clk_i)
+  if (rst_i) begin
     cs <= 16'hf000;
     ip <= 16'hfff0;
   end
@@ -80,34 +133,43 @@ always @(posedge wb_clk_i)
         cs <= requested_cs;
         ip <= requested_ip;
     end
-    else if (!stalled & wb_ack_i)
-        ip <= ip + 2; 
+    else if (!stalled & wb_cyc & valid_cyc & wb_cyc_complete)
+        ip <= ip + 1; 
   end
 
 // wb_cyc_o
 // When a stall condition is encountered at or during wb cycle,
 // follow through until wishbone cycle completes. This essentially forces one
-// complete wb cycle before the stall condition is acknowledge.
-always @(posedge wb_clk_i)
-  if (wb_rst_i) wb_stb_o <= 1'b0;
-  else wb_cyc_o <= !stalled ? 1'b1 : (wb_ack_i ? 1'b0 : wb_cyc_o);
+// complete wb cycle before the abort fetch or stall condition is acknowledge.
+//always @(posedge clk_i)
+//  if (rst_i) wb_stb_o <= 1'b0;
+//  else wb_cyc_o <= (!abort_fetch & !stalled) ? 1'b1 : (wb_cyc_complete ? 1'b0 : wb_cyc_o);
 
 // wb_stb_o
 // When a stall condition is encountered at or during wb strobe,
 // follow through until wishbone cycle completes. This essentially forces one
 // complete wb cycle before the stall condition is acknowledge.
-always @(posedge wb_clk_i)
-  if (wb_rst_i) wb_stb_o <= 1'b0;
-  else wb_stb_o <= !stalled ? 1'b1 : (wb_ack_i ? 1'b0 : wb_stb_o);
-
-// write fifo
-always @(posedge wb_clk_i)
-  if (wb_rst_i) wr_fifo <= 1'b0;
-  else wr_fifo <= (!stalled & wb_ack_i);
+//always @(posedge clk_i)
+//  if (rst_i) wb_stb_o <= 1'b0;
+//  else wb_stb_o <= (!abort_fetch & !stalled) ? 1'b1 : (wb_cyc_complete ? 1'b0 : wb_stb_o);
 
 // Pass wishbone data to fifo
-always @(posedge wb_clk_i)
-  if (wb_rst_i) wr_fifo <= 1'b0;
-  else fifo_dat_o <= wb_dat_i;
+// We MUST hold the data if the fifo becomes full
+always @(posedge clk_i)
+  if (rst_i) begin
+    fetch_dat_o <= 16'b0;
+    fifo_cs_o  <= 16'b0;
+    fifo_ip_o  <= 16'b0;
+  end
+  else if (wb_cyc & valid_cyc & wb_cyc_complete) begin
+    fetch_dat_o <= wb_dat_i;
+    fifo_cs_o  <= cs;
+    fifo_ip_o  <= ip;
+  end
+
+// write fifo
+always @(posedge clk_i)
+  if (rst_i) wr_fetch_fifo <= 1'b0;
+  else wr_fetch_fifo <= !abort_fetch & !stalled & wb_cyc & valid_cyc & wb_cyc_complete;
 
 endmodule

@@ -24,7 +24,15 @@ module zet (
     input         clk_i,
     input         rst_i,
 
-    // Wishbone master interface
+    // Wishbone master interface - fetch
+    input  [15:0] wbf_dat_i,
+    output [19:1] wbf_adr_o,
+    output [ 1:0] wbf_sel_o,
+    output        wbf_cyc_o,
+    output        wbf_stb_o,
+    input         wbf_ack_i,
+
+    // Wishbone master interface - exec
     input  [15:0] wb_dat_i,
     output [15:0] wb_dat_o,
     output [19:1] wb_adr_o,
@@ -44,11 +52,6 @@ module zet (
   );
 
   // Net declarations
-  wire [19:0] umif_adr_i;
-  wire [15:0] umif_dat_o;
-  wire        umif_stb_i;
-  wire        umif_by_i;
-  wire        umif_ack_o;
 
   wire [19:0] umie_adr_i;
   wire [15:0] umie_dat_o;
@@ -64,11 +67,12 @@ module zet (
     .clk (clk_i),
     .rst (rst_i),
 
-    .umif_adr_o (umif_adr_i),
-    .umif_dat_i (umif_dat_o),
-    .umif_stb_o (umif_stb_i),
-    .umif_by_o  (umif_by_i),
-    .umif_ack_i (umif_ack_o),
+    .wbf_dat_i(wbf_dat_i),
+    .wbf_adr_o(wbf_adr_o),
+    .wbf_sel_o(wbf_sel_o),
+    .wbf_cyc_o(wbf_cyc_o),
+    .wbf_stb_o(wbf_stb_o),
+    .wbf_ack_i(wbf_ack_i),
 
     .umie_adr_o (umie_adr_i),
     .umie_dat_i (umie_dat_o),
@@ -88,11 +92,11 @@ module zet (
     .clk (clk_i),
     .rst (rst_i),
 
-    .umif_adr_i (umif_adr_i),
-    .umif_dat_o (umif_dat_o),
-    .umif_stb_i (umif_stb_i),
-    .umif_by_i  (umif_by_i),
-    .umif_ack_o (umif_ack_o),
+    .umif_adr_i (16'b0),
+    .umif_dat_o (),
+    .umif_stb_i (1'b0),
+    .umif_by_i  (1'b0),
+    .umif_ack_o (),
 
     .umie_adr_i (umie_adr_i),
     .umie_dat_o (umie_dat_o),
@@ -115,6 +119,6 @@ module zet (
   );
 
   // Continuous assignments
-  assign pc = umif_adr_i;
+  assign pc = wbf_adr_o;
 
 endmodule
