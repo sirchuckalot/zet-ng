@@ -220,10 +220,10 @@ always @(posedge clk)
     immediate_o <= 16'b0;
   else
   if (latch_immediate_1)
-    offset_o[7:0] <= instruction_i;
+    immediate_o[7:0] <= instruction_i;
   else
   if (latch_immediate_2)
-    offset_o[15:8] <= instruction_i;
+    immediate_o[15:8] <= instruction_i;
 
 // next state logic
 always @(posedge clk)
