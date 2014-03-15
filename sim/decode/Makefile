@@ -1,6 +1,7 @@
 #
 #  decode Makefile for Modelsim simulation
 #  Copyright (C) 2010  Zeus Gomez Marmolejo <zeus@aluzina.org>
+#  adjusted for decoder testing by Charley Picker <charleypicker@yahoo.com>
 #
 #  This file is part of the Zet processor. This processor is free
 #  hardware; you can redistribute it and/or modify it under the terms of
@@ -28,7 +29,6 @@ ZET_MODS    = zet_decode \
 
 
 SIM_MODS    = test_decode \
-              memory
 
 
 SYS_MODS    = $(ZET_MODS) \
@@ -37,6 +37,7 @@ SYS_MODS    = $(ZET_MODS) \
 SYS_LIBS    = $(addprefix $(LIB)/, $(SYS_MODS) )
 
 vpath %.v ../../rtl
+
 
 all: $(LIB) $(SYS_LIBS)
 

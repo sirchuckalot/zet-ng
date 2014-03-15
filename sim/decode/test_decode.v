@@ -161,7 +161,7 @@ end
 initial
     begin
       //$readmemh("data.rtlrom", ram, 19'h78000);
-      $readmemh("data.rtlrom", ram);
+      $readmemh("../data.rtlrom", ram);
     end
 
 endmodule
