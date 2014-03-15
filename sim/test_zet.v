@@ -38,24 +38,48 @@ module test_zet;
   reg  [15:0] io_reg;
 
   reg         intr;
+  
+  // Wishbone master interface - fetch
+  wire [15:0] wbf_dat_i;
+  wire [19:1] wbf_adr_o;
+  wire [ 1:0] wbf_sel_o;
+  wire        wbf_cyc_o;
+  wire        wbf_stb_o;
+  wire        wbf_ack_i;
 
   // Module instantiations
-  memory mem0 (
-    .wb_clk_i (clk),
-    .wb_rst_i (rst),
-    .wb_dat_i (dat_o),
-    .wb_dat_o (mem_dat_i),
-    .wb_adr_i (adr),
-    .wb_we_i  (we),
-    .wb_sel_i (sel),
-    .wb_stb_i (stb & !tga),
-    .wb_cyc_i (cyc & !tga),
-    .wb_ack_o (mem_ack)
+  memory2prt mem0 (
+    .wb1_clk_i (clk),
+    .wb1_dat_o(wbf_dat_i),
+    .wb1_adr_i(wbf_adr_o),
+    .wb1_sel_i(wbf_sel_o),
+    .wb1_cyc_i(wbf_cyc_o),
+    .wb1_stb_i(wbf_stb_o),
+    .wb1_ack_o(wbf_ack_i),
+
+    .wb2_clk_i (clk),
+    .wb2_rst_i (rst),
+    .wb2_dat_i (dat_o),
+    .wb2_dat_o (mem_dat_i),
+    .wb2_adr_i (adr),
+    .wb2_we_i  (we),
+    .wb2_sel_i (sel),
+    .wb2_stb_i (stb & !tga),
+    .wb2_cyc_i (cyc & !tga),
+    .wb2_ack_o (mem_ack)
   );
 
   zet zet (
     .clk_i (clk),
     .rst_i (rst),
+    
+    // Wishbone master interface - fetch
+    .wbf_dat_i(wbf_dat_i),
+    .wbf_adr_o(wbf_adr_o),
+    .wbf_sel_o(wbf_sel_o),
+    .wbf_cyc_o(wbf_cyc_o),
+    .wbf_stb_o(wbf_stb_o),
+    .wbf_ack_i(wbf_ack_i),
 
     .wb_dat_i (dat_i),
     .wb_dat_o (dat_o),
@@ -107,7 +131,8 @@ module test_zet;
 
   initial
     begin
-      $readmemh("data.rtlrom", mem0.ram, 19'h78000);
+      $readmemh("data.rtlrom", mem0.ram1, 19'h78000);
+      $readmemh("data.rtlrom", mem0.ram2, 19'h78000);
 //      $readmemb("../rtl/micro_rom.dat",
 //        zet.core.micro_data.micro_rom.rom);
     end
